@@ -60,6 +60,14 @@ Manual: Set a near-term disposable schedule or authorized test webhook, verify o
   and verify the same generation before stopping. Local execution and catch-up
   remain unchanged. Unsupported triggers and other pending work keep it awake.
 
+### Latest skill references
+
+Routine instructions retain stable skill mentions. After a project source syncs an
+upstream change, the next execution uses the latest installed version without waiting
+on GitHub. Record the resolved version before/after and verify a resumed execution
+keeps its original version. Private skill references require current project access
+for both the agent and its responsible person.
+
 ### Storybook verification
 
 #### `run-now`
