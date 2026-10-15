@@ -3645,7 +3645,9 @@ export function heartbeatService(
         );
       } else {
         await runCompletion.failRunSetup({
-          run, runId, outerErr, identityRedactor, readFailureReportSecrets,
+          run, runId, outerErr, signal: executionControl.controller.signal,
+          providerDispatchStarted: legacyAdapterEntered || nativeDispatchStarted,
+          identityRedactor, readFailureReportSecrets,
         });
       }
     } finally {
