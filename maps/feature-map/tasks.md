@@ -19,6 +19,7 @@ Agent access: [companion](../agent-access-map/tasks.md).
 - `properties`: `tasks/properties` — change status, priority, assignee, project, and relationships where authorized.
 - `discussion`: `tasks/discussion` — persist comments, references, and files on the task.
 - `completion`: `tasks/completion` — distinguish backlog, active work, review, blocked, done, and cancelled outcomes.
+- `privacy`: `tasks/privacy` — create private tasks, share or revoke access, and inspect parent/project inheritance before changing visibility.
 
 ## How to get to it (user POV)
 
@@ -33,6 +34,10 @@ Open `/issues` or a project’s Issues view; legacy `/tasks` links redirect.
 ### `task-detail`
 
 Open `/issues/:issueId` from a row, mention, or direct link.
+
+### `task-sharing`
+
+Use the privacy control in New task, or open an existing task’s menu and choose **Make private**, **Share…**, or **Make public** where allowed. The share sheet lists direct grants and inherited access from private ancestors or project membership. Inherited rows have no local revoke action; manage that access at its source.
 
 ## Driving it with Playwright and the Paperclip CLI
 
@@ -103,7 +108,17 @@ cancel active work. The [comment route regressions](../../server/src/__tests__/i
 and [HTTP/process and interrupted-cancellation tests](../../server/src/__tests__/issue-scheduled-retry-routes.test.ts)
 cover these boundaries locally; deployed runner acceptance remains separate.
 
+### `task-sharing`
+
+Automated: [Share sheet](../../ui/src/components/IssueShareSheet.test.tsx), [privacy controls](../../ui/src/components/PrivateTaskPrivacyControls.test.tsx), [grant routes](../../server/src/__tests__/issue-access-grants-routes.test.ts), and [privacy production review](../../server/src/__tests__/privacy-production-review.test.ts) cover component actions, persisted grants, inheritance, and actor/resource denials. They do not establish a live two-person browser journey.
+
+Manual: Use authenticated mode with two ordinary operators, an eligible agent, and disposable parent/child/sibling tasks. Create private work as the first person; confirm the second person cannot discover or cold-open it. Share only the child, reload both sessions, and verify child/descendant access without exposing the private parent, sibling, or unreadable project metadata. Inspect direct and inherited rows in Share; inherited rows must identify access managed at its source and offer no local revoke action. Confirm a shared reader cannot manage the task’s grants. Revoke the direct grant as its manager, reload, and retry list and direct reads; change inherited access at its ancestor or project source separately. Inspect blocked Make public actions under a private parent or nonpersonal private project; separately confirm the offered personal-project publish action removes that project binding while private descendants remain private. With an actual granted agent, test the responsible user’s access intersection and the allowed restriction to private; agent access must not permit sharing or publishing.
+
+Sources: [Privacy actions](../../ui/src/components/IssuePrivacyActions.tsx), [share sheet](../../ui/src/components/IssueShareSheet.tsx), [issue routes](../../server/src/routes/issues.ts), and [authorization](../../server/src/services/authorization.ts).
+
 ## Gotchas
+
+- Private task sharing and private project membership are distinct read sources. Revoking a direct task grant does not revoke an independent ancestor/project grant; inspect the actual access source.
 
 - Priority remains an API field, but ordinary priority UI editing is hidden.
 
