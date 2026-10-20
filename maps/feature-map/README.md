@@ -91,7 +91,7 @@ Use this index to open a recipe or copy its feature and full capability IDs.
 | Feature ID | Recipe | Capability IDs |
 | --- | --- | --- |
 | `routines` | [Routines, schedules, and triggers](routines.md) | `routines/definition`, `routines/triggers`, `routines/run-now`, `routines/history`, `routines/management` |
-| `cases` | [Cases](cases.md) | `cases/browse`, `cases/structure`, `cases/history`, `cases/task-links` |
+| `cases` | [Cases](cases.md) | `cases/browse`, `cases/structure`, `cases/history`, `cases/task-links`, `cases/handoffs` |
 | `status-cards` | [Status cards](status-cards.md) | `status-cards/authoring`, `status-cards/generation`, `status-cards/inspection`, `status-cards/archive` |
 
 ### Oversight and operation
