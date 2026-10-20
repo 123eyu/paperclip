@@ -2637,6 +2637,7 @@ export function TaskChatThread(props: TaskChatThreadProps) {
   );
   const optimisticRunnerStartup =
     assigneeUsesPaperclipRunner &&
+    !props.executionBlocked &&
     !tailRunId &&
     (runnerSubmissionPending ||
       commentItems.some(

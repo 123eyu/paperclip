@@ -1198,6 +1198,7 @@ function InboxMobileToolbar({
 }
 
 type IssueDetailChatTabProps = {
+  executionBlocked?: boolean;
   queryIssueId?: string;
   browsers?: import("@paperclipai/shared").TaskBrowser[];
   onOpenBrowser?: (browserId: string) => void;
@@ -1355,6 +1356,7 @@ type IssueDetailChatTabProps = {
 const DesignSandboxTaskThread = lazy(() => import("../components/design-sandbox/DesignSandboxTaskThread"));
 
 const IssueDetailChatTab = memo(function IssueDetailChatTab({
+  executionBlocked,
   queryIssueId,
   browsers,
   onOpenBrowser,
@@ -2507,6 +2509,7 @@ const IssueDetailChatTab = memo(function IssueDetailChatTab({
         >
           <EmailThreadProvider companyId={companyId} issueId={issueId}>
           <ThreadComponent
+            executionBlocked={executionBlocked}
             key={conversationMode ? draftKey : issueId}
             {...(!classicTaskInterfaceEnabled ? { creationActivity: resolvedActivity } : {})}
             onOpenSkill={onOpenSkill}
@@ -7781,7 +7784,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
             issueCacheRefs={issueCacheRefs}
           />
 
-          {resolvedDetailTab === "chat" && (
+          {resolvedDetailTab === "chat" && !issue.executionBlocker?.workspaceRecovery && (
             <WorkspaceExportRecovery key={`workspace-export:${issue.activeRecoveryAction?.id ?? issue.id}`}
               className={shellSectionClass}
               action={issue.activeRecoveryAction ?? null} />
@@ -7789,6 +7792,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
           {resolvedDetailTab === "chat" && issue.executionBlocker && (
             <ExecutionBlockerNotice className={shellSectionClass} companyId={issue.companyId} issueId={issue.id}
               issueStatus={issue.status} canManage={canManageBoardRuntime && canResolveBoardRecoveryAction}
+              canRecover={canResolveBoardRecoveryAction}
               blocker={issue.executionBlocker} onRetried={invalidateIssueDetail} />
           )}
 
@@ -8119,6 +8123,7 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
                   onRetry: (actionId) => retryDispositionRecovery.mutateAsync(actionId).then(() => undefined),
                 }}>
                 <IssueDetailChatTab
+                  executionBlocked={Boolean(issue.executionBlocker)}
                   queryIssueId={issueId ?? issue.id}
                   onOpenSkill={handleOpenSkill}
                   browsers={browserQuery.data}

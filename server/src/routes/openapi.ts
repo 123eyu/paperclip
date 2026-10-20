@@ -247,6 +247,7 @@ import {
   // Issue recovery and decomposition
   createAcceptedPlanDecompositionSchema,
   resolveIssueRecoveryActionSchema,
+  recoverWorkspaceSchema,
   retryWorkspaceExportSchema,
   reconstructWorkspaceSchema,
   resumeWorkspaceFinalizationSchema,
@@ -10694,6 +10695,15 @@ registerCurrentRoute({
   path: "/api/issues/{id}/recovery-actions",
   tags: ["issues"],
   summary: "List issue recovery actions",
+});
+
+registerCurrentRoute({
+  method: "post",
+  path: "/api/issues/{id}/recovery-actions/recover-workspace",
+  tags: ["issues"],
+  summary: "Request safe recovery of a retained workspace without restarting the source turn",
+  body: recoverWorkspaceSchema,
+  responses: { 202: r.ok(), 400: r.badRequest, 401: r.unauthorized, 403: r.forbidden, 404: r.notFound, 409: r.conflict },
 });
 
 registerCurrentRoute({
