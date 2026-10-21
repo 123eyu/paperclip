@@ -475,6 +475,20 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
   const [overlay, setOverlay] = useState<AgentConfigOverlay>(emptyOverlay);
   const [environmentDraftDirty, setEnvironmentDraftDirty] = useState(false);
   const [environmentEditorKey, setEnvironmentEditorKey] = useState(0);
+  const [runnerUpgrade, setRunnerUpgrade] = useState<{
+    agentId: string;
+    status: "pending" | "upgraded" | "failed";
+    error?: string;
+  } | null>(null);
+  const currentRunnerUpgrade = !isCreate && runnerUpgrade?.agentId === props.agent.id ? runnerUpgrade : null;
+  const runnerUpgradePending = currentRunnerUpgrade?.status === "pending";
+  const runnerUpgraded = currentRunnerUpgrade?.status === "upgraded";
+  const runnerUpgradeError = currentRunnerUpgrade?.error;
+  useEffect(() => {
+    if (!isCreate && props.agent.adapterType !== "paperclip_runner") {
+      setRunnerUpgrade(current => current?.agentId === props.agent.id ? null : current);
+    }
+  }, [isCreate, !isCreate ? props.agent.id : undefined, !isCreate ? props.agent.adapterType : undefined]);
   const agentRef = useRef<Agent | null>(null);
   // The overlay snapshot a background account-binding save persisted. The form
   // stays editable while that save is in flight, so the agent refresh that
@@ -623,6 +637,28 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
     enabled: Boolean(selectedCompanyId),
   });
   const runnerAvailability = runnerDiscovery.data?.find(item => item.type === harnessType);
+  const showRunnerUpgrade = !isCreate
+    && ["codex_local", "claude_local"].includes(props.agent.adapterType)
+    && adapterType === props.agent.adapterType
+    && !runnerDiscovery.isError
+    && runnerAvailability?.defaultRunner === "paperclip";
+  const upgradeRunner = async () => {
+    if (isCreate || runnerUpgradePending) return;
+    const agentId = props.agent.id;
+    setRunnerUpgrade({ agentId, status: "pending" });
+    try {
+      const flushedEnv = flushEnvironmentDraft();
+      const nextOverlay = flushedEnv
+        ? { ...overlay, adapterConfig: { ...overlay.adapterConfig, env: flushedEnv } }
+        : overlay;
+      await props.onSave({ ...buildAgentUpdatePatch(props.agent, nextOverlay), runner: "paperclip" });
+      setRunnerUpgrade(current => current?.agentId === agentId ? { agentId, status: "upgraded" } : current);
+    } catch (error) {
+      setRunnerUpgrade(current => current?.agentId === agentId ? {
+        agentId, status: "failed", error: error instanceof Error ? error.message : "Could not upgrade this agent. Try again.",
+      } : current);
+    }
+  };
   const runner: AgentRunnerChoice = isCreate ? props.values.runner ?? "auto" : overlay.runner ?? agentRunner(adapterType);
   const fieldsAdapterType = isRunnerHarness
     ? (runner === "paperclip" || (runner === "auto" && runnerAvailability?.defaultRunner === "paperclip") ? "paperclip_runner" : harnessType)
@@ -1487,6 +1523,27 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
   }
 
   return (
+    <div className="space-y-6">
+      {showRunnerUpgrade && !runnerUpgraded ? (
+        <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
+          <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+            <div className="min-w-0 flex-1 space-y-1">
+              <p className="text-sm font-medium">Upgrade to Paperclip Runner</p>
+              <p className="text-sm text-muted-foreground">
+                Keep {harnessType === "claude_local" ? "Claude" : "Codex"}, your model, account, and compatible settings.
+                New sessions start fresh; past runs stay available.
+              </p>
+              {isDirty ? <p className="text-xs text-muted-foreground">Your unsaved changes will be included.</p> : null}
+            </div>
+            <Button size="sm" className="self-end sm:self-auto" onClick={upgradeRunner} disabled={runnerUpgradePending || (!isCreate && props.isSaving)}>
+              {runnerUpgradePending ? <Loader2 className="size-4 animate-spin" /> : null}
+              {runnerUpgradePending ? "Upgrading…" : "Upgrade runner"}
+            </Button>
+          </div>
+          {runnerUpgradeError ? <p role="alert" className="text-sm text-destructive">{runnerUpgradeError}</p> : null}
+        </div>
+      ) : null}
+      {runnerUpgraded ? <p role="status" className="text-sm text-muted-foreground">Upgraded to Paperclip Runner.</p> : null}
     <ConfigSections order={props.sectionOrder} className={cn("relative", cards && "space-y-6")}>
       {/* ---- Floating Save button (edit mode, when dirty) ---- */}
       {isDirty && !props.hideInlineSave && (
@@ -2240,6 +2297,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
         />
       )}
     </ConfigSections>
+    </div>
   );
 }
 
