@@ -85,11 +85,14 @@ export async function storeGitRestorePoint(input: {
   checkout?: string;
   upstreamCommits: readonly string[];
   headOnRemote: boolean;
+  resolvePreserveCommits?: () => Promise<readonly string[]>;
   limits?: Partial<RestorePointLimits>;
   signal?: AbortSignal;
 }): Promise<{ ref: GitRestorePointRef; ledgerId: string; manifest: RestorePointManifest } | null> {
   const history = await restorePointHistoryDigest(input.cwd, input.signal);
-  const captured = await captureRestorePoint({ cwd: input.cwd, upstreamCommits: input.upstreamCommits, limits: input.limits, signal: input.signal });
+  const preserveCommits = await input.resolvePreserveCommits?.();
+  const captured = await captureRestorePoint({ cwd: input.cwd, upstreamCommits: input.upstreamCommits, preserveCommits,
+    limits: input.limits, signal: input.signal });
   if (!captured) return null;
   if (await restorePointHistoryDigest(input.cwd, input.signal) !== history) throw new RestorePointRestoreFailure("restore_point_history_changed");
   const id = randomUUID();

@@ -141,6 +141,12 @@ remote lacks, when any reflog holds commits that are neither on the remote nor p
 the checked-out history the restore point bundles, when it has objects reachable from
 nothing, or when its `COMMIT_EDITMSG` holds a draft that matches no commit in its
 history. A `COMMIT_EDITMSG` that matches a commit is accepted for every nested checkout.
+A nested checkout's remote-tracking refs (`refs/remotes/origin/*`) and their reflogs can
+point at commits the remote has since dropped, for example a branch deleted after a squash
+merge. Strict expiration keeps such a checkout. In restore point mode those commits are
+saved in the checkout's restore point instead, as history-only objects (the remote-tracking
+refs themselves are not recreated), and any change to the remote-tracking refs after capture
+rolls expiration back.
 Each restore point also records a digest of its `HEAD` reflog and `ORIG_HEAD`; under the
 expiration locks that history must be unchanged too, so a commit followed by a reset
 after capture rolls expiration back. Reopening
