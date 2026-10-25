@@ -70,7 +70,8 @@ The two preliminary reconciliation reads omit named launch renderings and
 preparation payloads. Native profiles omit unused native execution input.
 They retain all other context, full results, legacy profiles, task identity,
 retry accounting, and unknown controls. Native runs still reach their native
-recovery guard. Terminalization keeps its full locked source and stored input.
+recovery guard. Terminalization locks its current control state and returns
+full rows from its writes. Stored input remains intact.
 
 Execution-blocker reads select process, lifecycle, and task-binding fields rather
 than full execution rows. Context retains typed task and pre-dispatch evidence;
@@ -95,6 +96,11 @@ identity, and checkpoint presence without loading the checkpoint or execution
 payloads. It retains current coordinator checks, provider evidence, local-host
 identity checks, and every lease's termination receipt. The stop receipt and
 process-field update remain in the same transaction.
+
+Legacy terminalization locks runtime mode, status, full result evidence, and the
+status-delivery token without loading unused input, profile, or log bodies.
+It keeps the existing lock, writes, full returned run, workspace-retention
+receipts, and source-bound recovery holds. Stored payloads remain unchanged.
 
 Conversation ownership checks select process identity and full recovery result
 evidence without execution prompts or profiles. Committed native reply repair
