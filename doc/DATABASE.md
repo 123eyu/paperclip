@@ -49,6 +49,12 @@ and leaves all existing cases passive. Source identities are not grants.
 
 ### Task query performance
 
+Native event acknowledgements read a count and maximum through the existing
+source-sequence index. A stream with gaps uses indexed lookups for its first
+missing successor. The acknowledgement keeps its contiguous-prefix rule without
+returning every historical sequence number. All events stay stored. Counting the
+index entries still grows with the stream length.
+
 The attention feed checks for newer runs with company-scoped existence probes.
 The probes match the failed run's agent and issue or task context. They preserve
 the existing millisecond comparison and empty-context rules. Each batch holds
