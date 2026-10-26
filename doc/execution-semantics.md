@@ -1385,14 +1385,25 @@ accepted native result. A successful `workspace_recovery` operation and matching
 recovery record prove persistence; adapter output or a user repair note cannot.
 The failed run and unknown external effects remain historical facts.
 
-Startup and periodic recovery discover these obligations through the retained
-workspace index. Two background exports per server keep unrelated recovery
-responsive. Automatic file recovery has three total attempts with a 30-second
-delay. An idempotent board request through
+Startup and the retained-workspace sweep reconstruct these obligations through
+the retained workspace index. Committed Retry, recovery admission, and recovery
+progress writes wake a separate preservation worker. It follows the persisted
+retry deadline and becomes idle when no eligible recovery remains. Two background
+exports per server keep unrelated execution finalization responsive. A resolved
+exact-source files-only obligation remains eligible; unrelated resolved or
+cancelled recovery history does not keep this worker active. The persisted
+attempt budget applies across restarts. An idempotent board request through
 `POST /api/issues/:id/recovery-actions/recover-workspace` admits one additional
 attempt after a transient failure. It requires task mutation access, accepts no
 infrastructure certification, and grants no agent or provider execution authority.
-Restarts do not reset the attempt limit. Missing stop or descriptor proof keeps
+Each completed export frees its own slot and wakes the next scan. A slow export
+does not hold a free slot. Completed cleanup and saved-input obligations receive
+one bounded pass through unvisited sources. The pass stops at its tail so paused
+input does not keep the worker active; a committed change starts a fresh pass.
+Shutdown joins this worker's exports before closing the database. Repeated Retry
+during physical preservation binds the canonical intent
+without changing the attempt's generation or revision. Progress writes preserve
+that newer intent so its fenced completion can still commit. Missing stop or descriptor proof keeps
 the source allocated and exposes the specific service blocker.
 
 File recovery alone never requests another agent turn. Existing saved human
