@@ -521,13 +521,25 @@ of the invalid call. Unauthorized tools still receive a generic rejection, and
 corrected calls retain the same permission and approval checks.
 
 A native provider may omit `continuation` (or send `null`) when it reports
-`yielded` after saving a monitor or requesting repository preparation. The controller reads current authorized task
+`yielded` after saving a monitor, requesting repository preparation, or publishing
+an authorized current-head GitHub review. The controller reads current authorized task
 context and fills the canonical continuation only if that same task,
 run, assignee, and work mode remain eligible. An eligible monitor takes precedence.
 A pending repository requested by that task in its current workspace offers
 `same_agent`; the existing status arbiter and wake queue own the next admission.
 Prepared repositories and requests belonging to another task cannot offer it.
-An explicit `done` result does not acquire a continuation. Completion admission
+A completed GitHub review with its processed publication may offer `response_wake`
+for that exact head and accepted requester under current conversation and
+connection authority. A normal tree resume may inherit the published review
+through its accepted parent identity. An ordinary GitHub follow-up may inherit it
+only after this run has a processed useful reply bound to its exact current
+inbound comment; acknowledgements, pending or ambiguous writes and partial
+assessment receipts do not suffice. Completion admission, finalization and
+status commit recheck the server-issued run/review/head binding; a pending
+publication, newer unreviewed head or revoked access cannot fall through to an
+immediate continuation. An explicit malformed continuation remains invalid.
+An explicit `done` result does not acquire a continuation or change its completion
+policy; review scores are not interpreted as task-completion instructions. Completion admission
 checks that persisted monitor again. This default does not create or renew a
 schedule. A consumed, cleared, exhausted, or ineligible monitor cannot authorize
 a passive wait. An explicit `response_wake` still identifies a real response
@@ -757,7 +769,7 @@ Explicit retry admission checks the local parent adapter controller and verified
 
 A new user message can continue a terminal native run whose process fields were cleared before local stop receipts existed. Admission must verify the exact run, runner, workspace, and provider session in the retained suspended state, with no active provider turn, pending tool call, or undelivered output. Missing or mismatched state keeps the hold. A later recorded process launch also keeps the hold until its stop is verified. Normal assignment, decision, controller, environment cleanup, and active-run gates still apply. The message starts one fresh conversation turn; it does not replay the failed run, reset its recovery budget, or certify unknown action outcomes.
 
-The task thread exposes the guarded Retry action for failed or timed-out conversation runs and native preparation cancelled before provider startup when the never-started proof is verified. The server projects this eligibility on the recovery notice and rechecks it on Retry. Cleanup quarantine retains its inspection path, and non-conversation reconciliation gates remain enforced. Pending decisions, active execution, pause, budget, dependency, and ownership gates remain in force. A refused Retry reports its reason inline and remains available for another attempt.
+The task thread exposes the guarded Retry action for failed or timed-out conversation runs and native preparation cancelled before provider startup when the never-started proof is verified. The server projects this eligibility on the recovery notice and rechecks it on Retry. Cleanup quarantine retains its inspection path, and non-conversation reconciliation gates remain enforced. Pending decisions, active execution, pause, budget, dependency, and ownership gates remain in force. A refused Retry reports its reason inline and remains available for another attempt. When a newer linked-human GitHub message was saved but its admission was skipped by a budget or agent-availability gate, ordinary task Retry selects that unstarted message before considering the older failed run. The existing chat task-Retry owner snapshots the complete pending batch, including eligible skipped input, into a new admission generation bound to the canonical processed deliveries, comments, principal, session generation, admitted instruction snapshots, and task Retry intent. It retains the original skipped receipt and failed result unchanged. A terminal failed publication of that old result also remains history for a distinct selected request; pending or uncertain publication still holds work, and the old output is never replayed. Board Retry refusals expose only stable allowlisted authority categories, never source payloads, identifiers, or credential fingerprints. Admission rechecks source integrity and current access, then uses the normal new-user-turn continuation proof: a committed failed result can remain history only after controller, successor, process, workspace, and exact remote-termination guards pass. Unknown ownership stays deferred; Retry cannot certify it. The existing chat retry queue owns delivery and bounded infrastructure retries; a committed receipt settles a lost acknowledgment without another execution. An accepted saved-input receipt discharges only its matching unadmitted-input gate, allowing later genuine conversation or tree-resume wakes without replaying the skipped request.
 
 A continuation cancelled by the queued-run gate while waiting for review did not start a provider. Its matching dispatch-gate receipt and unclaimed execution fields keep this deliberate wait out of unknown-action reconciliation. Pending review and decision gates still apply. If an older server already created a recovery hold for this exact state, Retry or a new user message can request one fresh turn after the server verifies there is no provider, coordinator, or unfinished cleanup. Saved user input is reconsidered through the same admission path; the cancelled turn is not replayed.
 
@@ -838,6 +850,7 @@ A healthy `in_review` issue has at least one valid action path:
 - a human owner via `assigneeUserId`
 - an active run or queued wake that is expected to process the review state
 - an active one-shot monitor for an external service or async review loop that the assignee owns
+- an authorized GitHub conversation waiting for its next provider event after a published review; a tree resume or same-agent continuation retains this path only through its accepted requester lineage and the latest saved review publication
 - an open explicit recovery action for an ambiguous review handoff
 
 Agent-assigned `in_review` with no typed participant is only healthy when one of the other paths exists. Assignment to the same agent that produced the handoff is not, by itself, a review path.
@@ -1674,6 +1687,23 @@ Delivery still requires the provider's verified stop receipt. Periodic queue
 retries do not gain extra cleanup attempts, and the queue displays the server's
 waiting reason while cleanup remains unresolved.
 
+A connected task can also fail while preparing an accepted board-authored
+message, before the provider starts. Its Retry belongs to the canonical task
+intent rather than the external inbound-message ledger. The server certifies
+its unchanged, undeleted comment, original user wake and accepted identity in
+the same company, task, agent and user scope. A settled bootstrap diagnostic
+must agree with the absence of a native result, coordinator, environment lease,
+controller, process or provider output. A previous session display hint does
+not establish that the failed attempt started a provider.
+
+That intent pins the saved comment and accepted identity. Queue admission
+rechecks the source; dispatch rechecks the coalesced intent and its exact claimed
+successor receipt before inheriting the accepted identity. Current permissions,
+assignment, pauses, budgets and containment remain normal queue requirements.
+This path neither fabricates external inbound provenance nor replays a recorded
+terminal result. If this source cannot be certified, Retry directs the user to
+send a new task message to continue from saved work.
+
 The legacy task recovery notice shows “Automatic recovery of this task stopped.” in
 a bordered container with Retry for a failed or timed-out run. A failed Retry
 shows its error in the same container. New user messages and saved undelivered
@@ -1942,6 +1972,16 @@ and final dispatch gates. Queued and final native replacement dispatch also
 re-read dependency readiness, since new dependencies need not change the
 displayed task status. Old blocked rows without a receipt remain held; no
 historical status backfill is performed.
+
+For legacy GitHub input without a saved App ID or its own response receipt,
+Task Retry may prove the endpoint's earlier non-null App claim from a processed
+response ledger created before that input. The proof stays within the same
+company, endpoint, conversation and agent, with a processed prior delivery and
+its inbound source link. Supported setup and reconnect writers preserve an
+existing non-null App claim. This historical identity proof grants no publication
+replay or access: the saved input and current principal, repository, conversation,
+runtime fence and execution containment still pass normal admission. Explicit
+conflicting App bindings remain denials.
 
 ### Queued input after a native Stop
 

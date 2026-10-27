@@ -283,6 +283,20 @@ real human dependencies retain the ordinary attention-request path. A timed
 wait requires a confirmed `set_task_monitor` schedule. Database coverage lives
 in `external-chat-wait.integration.test.ts`; this is not live model evidence.
 
+Inherited GitHub review waits (2026-10-26): an explicit native `response_wake`
+after tree resume or same-agent continuation may retain the provider-event path
+through accepted requester identity lineage and the latest processed review
+publication for that task/conversation. This does not grant monitor management
+or publication authority. Current task/agent/company binding, repository,
+principal and endpoint checks remain effective. PostgreSQL regressions cover
+quiet repeated finalization, historical publication reuse, newer unreviewed
+heads and revoked access; live GitHub delivery remains separate acceptance.
+Omitted/null yielded reports may use the current run's server-projected published
+review wait. The same proof is rechecked at feedback, finalization and commit;
+older/different-run review, pending publication and revoked connection cannot
+supply it. This grants no new publication/monitor authority and leaves Done policy
+unchanged; explicit malformed input is not coerced.
+
 ## `outbound-email`
 
 Capability ID: `chat-channels/outbound-email`.
@@ -300,3 +314,11 @@ Evidence: `source-only` — reviewed at `9ef434fe79c57d976b8b03b14c5242db270b832
 Verification: `not-run` — Use the actual permitted writer and run to create one child/publication, confirm recipient delivery and an exact-message reply, and repeat idempotent requests without duplicate sends. Assert run/owner/mode/budget/company/credential/attachment denials and separate read access. Inspect the provider before resolving an unknown write outcome; a 202 or queued publication alone is not proof of delivery.
 
 Gaps: Real AgentMail transport, recipient delivery, and each native tool binding still need live proof. Controlled provider receipts and inbound-reply recipes do not establish a newly initiated external email journey.
+
+Ordinary task Retry can select newer linked-human GitHub input whose original
+admission was skipped by a budget or agent-availability gate. The chat owner
+revalidates its exact processed delivery, company/task/agent/principal, unchanged
+comment, session generation, and admitted instruction snapshot. A separate retry
+receipt preserves the original skipped receipt and older failed native result.
+Current access and normal native stop/cleanup guards still govern execution;
+board wake metadata alone cannot manufacture chat authority or replay old work.

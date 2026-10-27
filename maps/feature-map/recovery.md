@@ -82,6 +82,15 @@ stopped-run recovery checks.
 
 ### `operator-retry`
 
+The [connected-task regression](../../server/src/__tests__/chat-channels.integration.test.ts)
+uses HTTP Retry after an accepted board message fails before provider startup.
+It checks the canonical intent, same-user identity and actual queue dispatch,
+then repeats Retry after another contained preparation failure with the same
+source and a new certified successor;
+edited source, contradictory execution evidence and mismatched receipts refuse
+or wait. This local boundary probe deliberately stops before a provider call,
+so it does not establish hosted recovery of the task.
+
 Use the task's Retry action. It can create an isolated attempt after old execution
 is contained even when old-file preservation remains unresolved. Approval,
 credentials, budget and deliberate pause use their existing specific controls.
@@ -103,6 +112,15 @@ there must be one successor and no duplicate publication. A second reconnect
 after admission, changed App, revoked sender or changed repository must prevent
 dispatch. An unadmitted rejection keeps the follow-up available for another
 deliberate Retry. Historical deliveries must remain unchanged.
+Repeat with legacy input that has no saved App ID and was refused by a budget
+before acknowledgement. An earlier processed response from the same endpoint,
+conversation and agent can prove its App claim. Missing, late, unlinked or
+conflicting proof must reject Retry. Verify actual execution separately.
+At dispatch, confirm the admitted successor retains the same source and resolved
+continuation receipt. If it fails at Retry authorization before provider startup,
+use the next ordinary Retry against that newest failed run. It must retain the
+saved follow-up and create one successor; output, an allocated environment or an
+active controller must prevent treating that failure as never started.
 
 ### `post-stop-message`
 

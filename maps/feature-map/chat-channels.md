@@ -72,6 +72,17 @@ database suite checks these states and revoked endpoints using stored provider
 receipts; live model adherence remains a separate check.
 It also checks saved monitors, disabled repositories, multiple reviewed heads,
 read-only finish validation, withdrawal rollback, and separate approval gates.
+Repeat the review wait after a tree resume and a same-agent continuation with
+no new provider message. Accepted requester lineage and the latest saved review
+publication keep the task in review without a self-wake or duplicate publication.
+A newer unreviewed head, changed requester/repository, or revoked access cannot
+inherit the prior head's passive wait. Omitted/null yielded continuation is filled
+from authorized server task context after a current-head review, an accepted tree
+resume inheriting it, or a same-head follow-up with this run's processed useful
+reply bound to its exact current source. Pending or ambiguous replies and
+acknowledgements do not authorize this fallback. A malformed first report can recover by omitting the continuation;
+explicit malformed input remains rejected. Revocation between context read,
+finish and commit preserves the task without self-waking. Done policy is unchanged.
 
 Manual: For each supported provider being changed, send a unique message, verify the intended agent/company receives it, and inspect the actual external reply in the original thread. Repeat with an unlinked/unauthorized sender, duplicate inbound delivery, and one supported attachment. Record provider-specific results separately.
 
@@ -217,3 +228,14 @@ Sources: Source: [TaskChatBubble.tsx](../../ui/src/components/task-chat/TaskChat
 ### Documentation scope: Chat and email channel setup
 
 Shared recipes name provider checks; each provider transport/thread/identity/file-size/type combination needs separate live evidence and deeper instructions.
+
+Saved-input Retry regression: fail a disposable GitHub turn, change the
+configured instruction skill, and send a new authorized request while an agent
+budget gate blocks admission. Clear that gate and use the task thread's ordinary
+**Retry** control. Verify the new saved message and its admitted skill snapshot
+reach one run, rather than replaying the previous failed request. Preserve both
+original receipts. With a committed failed native result, continuation requires
+verified controller and environment cleanup; an unknown executor remains held.
+After successful admission, reload and verify that the prior skipped receipt does
+not strand a later real provider reply or tree resume. Provider fixtures support
+this behavior; live fixed-source runtime and destination proof remain separate.
