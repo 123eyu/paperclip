@@ -1609,6 +1609,23 @@ ownership, active controllers, cleanup leases, pause, approval, budget, and norm
 execution gates still apply. Dependency-blocked interaction mode remains limited
 to its existing answer/triage contract.
 
+Snapshot preservation and native copyback are distinct receipts. A historical
+workspace recovered as an immutable snapshot does not make its old native sync
+reference finalized. Once recovery settles, the current inbound owner can
+reauthorize its same unconsumed durable human request and select a fresh isolated
+workspace. The saved snapshot attaches to that successor through the existing
+verified attachment path. A saved board-message queue uses the same fresh
+strategy. Historical holds for the same failed run share that recovery strategy;
+each still requires its own execution and termination proofs. Neither path
+replays the stopped turn, adopts a chat request through the generic board queue,
+nor invents a copyback hash or resets the predecessor's attempt count.
+A later ordinary turn keeps the current source-free task directory, including a
+fresh attempt directory. Inherited agent Git defaults do not turn that saved
+directory into a Git base. Recognition requires the current same-task binding,
+active local directory realization, and verified canonical path. Explicit new
+source or Git requirements and immutable recovery bindings keep their existing
+selection rules. Preparation rechecks the binding and path under the source lock.
+
 The hold retirement, audit record, and new run commit together under the task
 lock. The new turn uses a fresh provider session and retains the latest user
 request, task history, completed work, and the interruption notice. It receives
