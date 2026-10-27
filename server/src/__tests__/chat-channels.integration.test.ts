@@ -2830,7 +2830,138 @@ describeEmbeddedPostgres("chat channel control-plane integration", () => {
       )))[0];
       return { ...f, service, head, assessment, provider, action, inline, checks, writes };
     }
-    it("reuses one main GitHub PR comment across review requests", async () => {
+    it("preserves the published GitHub assessment during passive-response maintenance", async () => {
+      const f = await publicationRetryFixture();
+      await f.service.execute(f.session, "submit_review", f.assessment, "published-before-passive-reply");
+      await db.update(heartbeatRuns).set({ status: "succeeded" }).where(eq(heartbeatRuns.id, f.run.id));
+      const reviewBefore = await readChatGitHubReviewsByEndpointId(f.endpoint.id);
+      const originalId = [...f.responseComments.keys()][0];
+      const originalBody = f.responseComments.get(originalId)!.body;
+      const writesBefore = f.responseWrites.length;
+      const responses = githubResponseCommentService(db, f.providerFetch);
+      const thread = makeThread({ channelId: "paperclipai/paperclip", id: f.conversation.externalThreadId }).thread;
+      await deliverMessage({ callbacks: f.callbacks, endpointId: f.endpoint.id, provider: "github", thread,
+        trigger: "subscribed_message", message: makeMessage({ id: "41802", text: "No fix pushed; keep the existing review unchanged and wait for my reply.", userId: "42", userName: "octocat" }) });
+      await responses.processPending();
+      expect(f.responseComments.get(originalId)!.body).toBe(originalBody);
+      expect(f.responseWrites).toHaveLength(writesBefore);
+      const [next] = await db.insert(heartbeatRuns).values({ companyId: f.companyId, agentId: f.assignedAgentId,
+        status: "running", runtimeMode: "native", contextSnapshot: await chatWakeContext({
+          endpointId: f.endpoint.id, issueId: f.conversation.issueId, provider: "github", providerMessageId: "41802",
+        }), resultJson: { finalizationPhase: "committed", finalizationReasonCode: "external_chat_response_waiting",
+          nativeResult: { schema: "paperclip.run_result.v1", reportedWorkDisposition: "yielded",
+            continuation: { kind: "response_wake", idempotencyKey: "passive-author-reply" } },
+          presentationDecision: { schema: "paperclip.run_presentation_decision.v1", resolverVersion: "2",
+            activityDisposition: "collapse", chosenSource: "none", commentAction: "none", commentId: null,
+            reasonCodes: ["yielded_control_plane_wait"] } } }).returning();
+      await db.update(issues).set({ status: "in_review" }).where(eq(issues.id, f.conversation.issueId!));
+      await responses.processPending();
+      expect(f.responseComments.get(originalId)!.body).toBe(originalBody);
+      expect(f.responseWrites).toHaveLength(writesBefore);
+      await db.update(heartbeatRuns).set({ status: "succeeded", nativePhase: "committed" }).where(eq(heartbeatRuns.id, next.id));
+      await responses.processPending();
+      await responses.processPending();
+      expect(f.responseComments.get(originalId)!.body).toBe(originalBody);
+      expect(await readChatGitHubReviewsByEndpointId(f.endpoint.id)).toEqual(reviewBefore);
+      expect([...f.responseComments.keys()]).toEqual([originalId]);
+      expect(await githubRunReplyState(db, { ...f.session, runId: next.id, endpointId: f.endpoint.id })).toBe("none");
+      const [delivery] = await db.select().from(chatDeliveries).where(and(eq(chatDeliveries.endpointId, f.endpoint.id),
+        eq(chatDeliveries.providerEventId, `${thread.id}:41802`)));
+      const [response] = await db.select().from(chatActions).where(and(eq(chatActions.deliveryId, delivery.id),
+        eq(chatActions.kind, "github_response_comment")));
+      expect(response).toMatchObject({ status: "cancelled", result: { final: true, code: "passive_response_wait" } });
+      const writes = f.responseWrites.length;
+      const updatedAt = response.updatedAt;
+      await responses.processPending();
+      expect(f.responseWrites).toHaveLength(writes);
+      expect((await readChatActionsById(response.id))[0].updatedAt).toEqual(updatedAt);
+      await expect(responses.failRun({ ...f.session, runId: next.id, endpointId: f.endpoint.id,
+        body: "This turn ended without publishing a final response." })).rejects.toMatchObject({ status: 403 });
+      expect(f.responseWrites).toHaveLength(writes);
+    });
+    it.each(["completed", "failed", "missing_decision", "comment_requested", "missing_semantic", "legacy", "uncommitted_native", "pending_publication", "missing_decision_then_missing", "uncommitted_then_failed", "malformed_null", "malformed_scalar", "malformed_schema", "malformed_action"] as const)(
+      "keeps GitHub response maintenance truthful for a new request: %s", async scenario => {
+      const pendingPresentation = scenario.startsWith("missing_decision") || scenario.startsWith("uncommitted") || scenario.startsWith("malformed");
+      const f = await publicationRetryFixture();
+      await f.service.execute(f.session, "submit_review", f.assessment, "review-before-new-request");
+      await db.update(heartbeatRuns).set({ status: "succeeded" }).where(eq(heartbeatRuns.id, f.run.id));
+      const originalId = [...f.responseComments.keys()][0];
+      const originalBody = f.responseComments.get(originalId)!.body;
+      const thread = makeThread({ channelId: "paperclipai/paperclip", id: f.conversation.externalThreadId }).thread;
+      await deliverMessage({ callbacks: f.callbacks, endpointId: f.endpoint.id, provider: "github", thread,
+        trigger: "subscribed_message", message: makeMessage({ id: "41802", text: "Please handle this new request", userId: "42", userName: "octocat" }) });
+      const [next] = await db.insert(heartbeatRuns).values({ companyId: f.companyId, agentId: f.assignedAgentId,
+        status: scenario === "failed" ? "failed" : "succeeded", runtimeMode: scenario === "legacy" ? "legacy" : "native",
+        nativePhase: scenario.startsWith("uncommitted") ? "observed" : "committed", contextSnapshot: await chatWakeContext({
+          endpointId: f.endpoint.id, issueId: f.conversation.issueId, provider: "github", providerMessageId: "41802",
+        }), resultJson: { finalizationPhase: "committed", finalizationReasonCode: "external_chat_response_waiting",
+          ...(scenario === "missing_semantic" ? {} : { nativeResult: { schema: "paperclip.run_result.v1",
+            reportedWorkDisposition: scenario === "completed" ? "completed" : "yielded",
+            continuation: { kind: "response_wake", idempotencyKey: "new-request-wait" } } }),
+          ...(scenario.startsWith("missing_decision") ? {} : { presentationDecision: scenario === "malformed_null" ? null : scenario === "malformed_scalar" ? "pending" : {
+            schema: scenario === "malformed_schema" ? "unknown" : "paperclip.run_presentation_decision.v1", chosenSource: "none",
+            commentAction: scenario === "malformed_action" ? "unknown" : scenario === "comment_requested" ? "create" : "none", reasonCodes: ["yielded_control_plane_wait"] } }) } }).returning();
+      if (scenario === "pending_publication") await db.insert(chatActions).values({ companyId: f.companyId,
+        endpointId: f.endpoint.id, conversationId: f.conversation.id, kind: "github_review_publication",
+        providerActionId: `github_publication:${randomUUID()}`, status: "processing",
+        payload: { operation: "comment", session: { ...f.session, runId: next.id } } });
+      const responses = githubResponseCommentService(db, f.providerFetch);
+      await responses.processPending();
+      const [delivery] = await db.select().from(chatDeliveries).where(and(eq(chatDeliveries.endpointId, f.endpoint.id),
+        eq(chatDeliveries.providerEventId, `${thread.id}:41802`)));
+      const [response] = await db.select().from(chatActions).where(and(eq(chatActions.deliveryId, delivery.id),
+        eq(chatActions.kind, "github_response_comment")));
+      if (scenario === "pending_publication") {
+        expect(f.responseComments.get(originalId)!.body).toBe(originalBody);
+        expect(response.result?.final).not.toBe(true);
+        expect(response).toMatchObject({ status: "failed", result: { retryable: true, code: "acknowledgement_unconfirmed" } });
+      } else if (pendingPresentation) {
+        expect(f.responseComments.get(originalId)!.body).toBe(originalBody);
+        expect(response.result?.final).not.toBe(true);
+        const pendingWrites = f.responseWrites.length;
+        await responses.processPending();
+        await expect(responses.failRun({ ...f.session, runId: next.id, endpointId: f.endpoint.id,
+          body: "This turn ended without publishing a final response." })).rejects.toMatchObject({ status: 409 });
+        expect(f.responseWrites).toHaveLength(pendingWrites);
+        const failed = scenario === "uncommitted_then_failed";
+        const missing = scenario === "missing_decision_then_missing";
+        await db.update(heartbeatRuns).set({ status: failed ? "failed" : "succeeded",
+          nativePhase: failed ? "failed" : "committed", resultJson: {
+            ...next.resultJson, finalizationPhase: failed ? "failed" : "committed",
+            nativeResult: { schema: "paperclip.run_result.v1", reportedWorkDisposition: missing ? "completed" : "yielded",
+              continuation: missing ? null : { kind: "response_wake", idempotencyKey: "settled-request-wait" } },
+            presentationDecision: { schema: "paperclip.run_presentation_decision.v1", chosenSource: "none",
+              commentAction: "none", reasonCodes: [missing ? "no_final_response" : "yielded_control_plane_wait"] },
+          } }).where(eq(heartbeatRuns.id, next.id));
+        await responses.processPending();
+        if (failed || missing) expect(f.responseComments.get(originalId)!.body).toContain(failed
+          ? "This turn stopped before completing" : "This turn ended without publishing a final response");
+        else expect(f.responseComments.get(originalId)!.body).toBe(originalBody);
+        expect((await readChatActionsById(response.id))[0]).toMatchObject({
+          status: failed || missing ? "processed" : "cancelled", result: { final: true },
+        });
+      } else {
+        expect(f.responseComments.get(originalId)!.body).toContain(scenario === "failed"
+          ? "This turn stopped before completing" : "This turn ended without publishing a final response");
+        expect(response).toMatchObject({ status: "processed", result: { final: true } });
+      }
+      const writes = f.responseWrites.length;
+      await responses.processPending();
+      expect(f.responseWrites).toHaveLength(writes);
+    });
+    it("keeps per-request fallback outside the main GitHub PR review wait", async () => {
+      const f = await toolReplyFixture();
+      await db.update(heartbeatRuns).set({ status: "succeeded", nativePhase: "committed", resultJson: {
+        finalizationPhase: "committed", finalizationReasonCode: "external_chat_response_waiting",
+        nativeResult: { schema: "paperclip.run_result.v1", reportedWorkDisposition: "yielded",
+          continuation: { kind: "response_wake", idempotencyKey: "not-a-main-pr-review" } },
+        presentationDecision: { schema: "paperclip.run_presentation_decision.v1", chosenSource: "none",
+          commentAction: "none", reasonCodes: ["yielded_control_plane_wait"] },
+      } }).where(eq(heartbeatRuns.id, f.run.id));
+      await githubResponseCommentService(db, f.providerFetch).processPending();
+      expect([...f.responseComments.values()][0].body).toContain("without publishing a final response");
+    });
+    it.each(["same_head", "new_head"] as const)("reuses one main GitHub PR comment across review requests: %s", async headCase => {
       const f = await publicationRetryFixture();
       await f.service.execute(f.session, "submit_review", f.assessment, "first-review");
       const originalId = [...f.responseComments.keys()][0];
@@ -2848,8 +2979,13 @@ describeEmbeddedPostgres("chat channel control-plane integration", () => {
           endpointId: f.endpoint.id, issueId: f.conversation.issueId, provider: "github", providerMessageId: "41802",
         }) }).returning();
       const session = { ...f.session, runId: next.id };
-      await f.service.execute(session, "begin_review", { reviewedCommit: f.head });
-      await f.service.execute(session, "submit_review", { ...f.assessment, summary: "Second assessment" }, "second-review");
+      const currentHead = headCase === "new_head" ? "c".repeat(40) : f.head;
+      f.setSupplementalProviderFetch(async (input, init) => String(input).endsWith("/pulls/418")
+        ? Response.json({ number: 418, state: "open", draft: false, head: { sha: currentHead },
+          base: { sha: "a".repeat(40), ref: "master" }, user: { id: 42, login: "octocat", type: "User" }, labels: [] })
+        : f.provider(input, init));
+      await f.service.execute(session, "begin_review", { reviewedCommit: currentHead });
+      await f.service.execute(session, "submit_review", { ...f.assessment, reviewedCommit: currentHead, summary: "Second assessment" }, "second-review");
       expect([...f.responseComments.keys()]).toEqual([originalId]);
       expect(f.responseComments.get(originalId)?.body).toContain("Second assessment");
       expect(f.responseWrites.filter(write => write.method === "POST")).toHaveLength(1);
@@ -3628,6 +3764,97 @@ describeEmbeddedPostgres("chat channel control-plane integration", () => {
       expect(classifications).toHaveLength(2); expect(classifications.map(c => c.violation)).toEqual([false, true]);
       expect(classifications.every(c => c.toolInvocationId === approval.invocationId && c.costEventId)).toBe(true);
     });
+    it.each(["begin_review", "submit_review"] as const)("recovers %s after a timeout before publication staging", async name => {
+      const f = await publicationRetryFixture();
+      let release!: () => void;
+      const blocked = new Promise<void>(resolve => { release = resolve; });
+      let metadataReads = 0;
+      f.setSupplementalProviderFetch(async (input, init) => {
+        if (String(input).endsWith("/pulls/418") && metadataReads++ === 0) {
+          await blocked;
+          throw new Error("Connection closed before PR metadata arrived");
+        }
+        return f.provider(input, init);
+      });
+      vi.stubGlobal("fetch", f.providerFetch);
+      onTestFinished(() => { release(); vi.unstubAllGlobals(); });
+      const gateway = createToolGatewayService(db);
+      const session = await gateway.createSession({ companyId: f.companyId, agentId: f.assignedAgentId, runId: f.run.id });
+      const tool = (await githubBotToolsForSession(db, f.session)).find(tool => tool.upstreamToolName === name)!;
+      const parameters = name === "begin_review" ? { reviewedCommit: f.head } : f.assessment;
+      const input = { sessionToken: session.token, tool: tool.name, parameters };
+      await expect(gateway.executeTool({ ...input, timeoutMs: 50 })).rejects.toMatchObject({ reasonCode: "tool_timeout" });
+      expect(await f.action()).toBeUndefined();
+      release();
+      const retry = await gateway.executeTool(input);
+      expect(retry).toMatchObject({ result: { data: name === "begin_review"
+        ? { reviewedCommit: f.head, state: "running" }
+        : { status: "processed", score: 3, conclusion: "neutral" } } });
+      const writes = f.responseWrites.length;
+      expect(await gateway.executeTool(input)).toMatchObject({ invocationId: retry.invocationId,
+        result: { data: name === "begin_review" ? { reviewedCommit: f.head } : { status: "processed" } } });
+      expect(f.responseWrites).toHaveLength(writes);
+      expect(f.responseComments.size).toBe(1);
+    });
+    it("stages one assessment when the timed-out metadata read completes alongside its retry", async () => {
+      const f = await publicationRetryFixture();
+      let release!: () => void;
+      const blocked = new Promise<void>(resolve => { release = resolve; });
+      let metadataReads = 0;
+      f.setSupplementalProviderFetch(async (input, init) => {
+        if (String(input).endsWith("/pulls/418") && metadataReads++ === 0) await blocked;
+        return f.provider(input, init);
+      });
+      vi.stubGlobal("fetch", f.providerFetch);
+      onTestFinished(() => { release(); vi.unstubAllGlobals(); });
+      const gateway = createToolGatewayService(db);
+      const session = await gateway.createSession({ companyId: f.companyId, agentId: f.assignedAgentId, runId: f.run.id });
+      const tool = (await githubBotToolsForSession(db, f.session)).find(tool => tool.upstreamToolName === "submit_review")!;
+      const input = { sessionToken: session.token, tool: tool.name, parameters: f.assessment };
+      await expect(gateway.executeTool({ ...input, timeoutMs: 50 })).rejects.toMatchObject({ reasonCode: "tool_timeout" });
+      const retry = gateway.executeTool(input);
+      release();
+      expect(await retry).toMatchObject({ result: { data: { actionId: expect.any(String) } } });
+      await expect.poll(async () => (await f.action())?.status).toBe("processed");
+      expect(await gateway.executeTool(input)).toMatchObject({ result: { data: { status: "processed" } } });
+      const actions = await db.select().from(chatActions).where(and(eq(chatActions.endpointId, f.endpoint.id),
+        eq(chatActions.kind, "github_review_publication")));
+      expect(actions).toHaveLength(1);
+      expect(actions[0].status).toBe("processed");
+      expect(f.responseComments.size).toBe(1);
+      expect(f.responseWrites.map(write => write.method)).toEqual(["POST", "PATCH"]);
+    });
+    it("rejects changed requests and revoked access before repeating an unstaged review", async () => {
+      const f = await publicationRetryFixture();
+      let metadataReads = 0;
+      let unavailable = true;
+      f.setSupplementalProviderFetch(async (input, init) => {
+        if (String(input).endsWith("/pulls/418")) {
+          metadataReads++;
+          if (unavailable) throw new Error("Connection closed before PR metadata arrived");
+        }
+        return f.provider(input, init);
+      });
+      vi.stubGlobal("fetch", f.providerFetch);
+      onTestFinished(() => vi.unstubAllGlobals());
+      const gateway = createToolGatewayService(db);
+      const session = await gateway.createSession({ companyId: f.companyId, agentId: f.assignedAgentId, runId: f.run.id });
+      const tool = (await githubBotToolsForSession(db, f.session)).find(tool => tool.upstreamToolName === "submit_review")!;
+      const input = { sessionToken: session.token, tool: tool.name, parameters: f.assessment, idempotencyKey: "preflight-request" };
+      await expect(gateway.executeTool(input)).rejects.toThrow("GitHub is temporarily unavailable");
+      unavailable = false;
+      const failedReads = metadataReads;
+      await expect(gateway.executeTool({ ...input, parameters: { ...f.assessment, summary: "Changed assessment" } }))
+        .rejects.toMatchObject({ reasonCode: "github_publication_unavailable" });
+      expect(await f.action()).toBeUndefined();
+      expect(metadataReads).toBe(failedReads);
+      await db.insert(toolPolicies).values({ companyId: f.companyId, name: "Revoke review", policyType: "block", priority: 0,
+        selectors: { catalogEntryId: tool.catalogEntryId! } });
+      await expect(gateway.executeTool(input)).rejects.toThrow();
+      expect(await f.action()).toBeUndefined();
+      expect(metadataReads).toBe(failedReads);
+      expect(f.responseWrites.map(write => write.method)).toEqual(["POST"]);
+    });
     it("reads pending GitHub receipts without dispatch and refuses a missing publication", async () => {
       const f = await publicationRetryFixture();
       let attempts = 0;
@@ -3785,7 +4012,10 @@ describeEmbeddedPostgres("chat channel control-plane integration", () => {
       const f = await toolReplyFixture();
       const [response] = await db.select().from(chatActions).where(and(eq(chatActions.endpointId, f.endpoint.id), eq(chatActions.kind, "github_response_comment")));
       await db.update(chatActions).set({ status: "received", result: null }).where(eq(chatActions.id, response.id));
-      await db.update(heartbeatRuns).set({ status: "succeeded" }).where(eq(heartbeatRuns.id, f.run.id));
+      await db.update(heartbeatRuns).set({ status: "succeeded", nativePhase: "committed", resultJson: { presentationDecision: {
+        schema: "paperclip.run_presentation_decision.v1", commentAction: "none", chosenSource: "none",
+        reasonCodes: ["no_final_response"],
+      } } }).where(eq(heartbeatRuns.id, f.run.id));
       await githubResponseCommentService(db, f.providerFetch).processPending();
       expect(f.responseComments.size).toBe(1);
       expect([...f.responseComments.values()][0].body).toContain("without publishing a final response");
@@ -4052,7 +4282,10 @@ describeEmbeddedPostgres("chat channel control-plane integration", () => {
     });
     it("does not invent a GitHub completion response when the agent sends no tool reply", async () => {
       const f = await toolReplyFixture();
-      await db.update(heartbeatRuns).set({ status: "succeeded", resultJson: { presentationDecision: { authorizationReason: "internal_agent_write" } } }).where(eq(heartbeatRuns.id, f.run.id));
+      await db.update(heartbeatRuns).set({ status: "succeeded", nativePhase: "committed", resultJson: { presentationDecision: {
+        schema: "paperclip.run_presentation_decision.v1", commentAction: "none", chosenSource: "none",
+        reasonCodes: ["no_final_response"], authorizationReason: "internal_agent_write",
+      } } }).where(eq(heartbeatRuns.id, f.run.id));
       await expect(resolveChatRunPresentationAuthorizationReason(db, f.session)).resolves.toBe("internal_agent_write");
       await enqueueChatRunMilestones(db); await f.service.processPendingPublications();
       expect(f.runtime.endpoints.get(f.endpoint.id)?.posts).toEqual([]);

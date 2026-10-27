@@ -115,8 +115,13 @@ GitHub publication recovery (2026-10-14): assigned-agent `submit_review`, `comme
 and `update_comment` calls reuse their run-, task-, endpoint-, and argument-bound
 publication on an exact retry. Identity uses the complete durable request rather
 than the shortened audit preview. A changed suffix, changed nested entry, or
-missing publication cannot authorize another write. Exact retries only read the
-receipt; the worker owns pending provider retries. Fresh gateway policy and provider authority remain
+missing completed publication cannot authorize another write. Exact retries read an
+existing receipt; the worker owns pending provider retries. A request interrupted
+during metadata or file reads before staging can repeat that preflight with the
+same full request identity. The immutable assessment, unique publication and
+provider lease still serialize its external write. `begin_review` exact retries
+resolve the run's current review and return a typed result instead of an audit
+preview. Fresh gateway policy and provider authority remain
 required. The durable worker resumes transient failures after restart and stops
 at its retry cap, revoked authority, or a superseded head. A pending receipt is
 not task completion. Source:
@@ -134,6 +139,15 @@ follow normal access checks. Provider-fixture coverage is not live GitHub proof.
 Native terminal reconciliation resolves the accepted run identity through the
 existing chat provenance resolver; an older run's reply cannot complete a newer
 request merely because both requests share the same PR comment.
+A terminal native success does not authorize missing-response publication while
+its native phase or durable presentation decision remains pending. Maintenance
+rechecks the same request after authoritative settlement; failures keep their
+separate fallback path.
+Maintenance projects the bounded server-committed native passive-wait decision
+only after current request ownership. It settles a no-comment acknowledgement
+without authorizing a new send or counting an old shared receipt as a current-run
+reply. Existing final App/marker-owned PR content survives progress acknowledgements;
+new canonical review publication remains the writer for replacement assessments.
 
 Speko browser sessions use `POST /api/companies/{companyId}/voice-sessions`,
 with GET inspection/notification and POST `/{sessionId}/end` operations below

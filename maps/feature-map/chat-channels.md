@@ -140,6 +140,18 @@ contracts with synthetic providers; record a live journey separately.
 For a long-lived task, repeat more than 100 continuations and check that tool
 access remains available. Fail a later GitHub run after a final answer and
 check that the earlier answer remains intact.
+After publishing a PR assessment, deliver an ordinary no-new-work author reply.
+Hold native presentation after execution succeeds. Verify maintenance makes no
+provider write while undecided, including repeated passes and the explicit
+fallback path. Commit either a passive wait, genuine missing response, or failure
+and verify that the same request settles once with the corresponding behavior.
+Verify the actual shared summary stays unchanged during queued/running
+acknowledgements and after the committed passive wait, including maintenance,
+restart and cleanup. Confirm the per-request acknowledgement is terminal and a
+second maintenance pass makes no write. Then request a real same-head and
+changed-head assessment and confirm canonical publication can replace it.
+Real-PostgreSQL provider fixtures cover this producer and missing/error/unknown
+write safety; record hosted destination acceptance separately.
 
 ### `endpoint-management`
 
@@ -174,7 +186,12 @@ write and verify one summary, finding, and App-scoped check. Retry the same tool
 call and verify it returns the saved receipt. Include text longer than 500
 characters and coverage with more than 50 entries. Change only the text suffix
 or final coverage entry and verify rejection without another write. Remove the
-durable publication and verify that a retry cannot dispatch a new write.
+completed durable publication and verify that a retry cannot dispatch a new write.
+Also interrupt metadata reads before publication staging, repeat the exact
+`begin_review` and `submit_review` requests, and verify typed results and one
+assessment publication. Let the original metadata read finish alongside its
+retry and verify that both converge on the same publication. Changed requests
+and revoked access must still stop preflight recovery.
 Leave a transient failure queued,
 restart the instance, and verify publication resumes at its saved deadline
 without another inbound message. Revoked access and permanent rejections must
