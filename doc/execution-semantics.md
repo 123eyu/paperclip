@@ -749,7 +749,7 @@ The handshake failure code is distinct from a session-identity mismatch. A timeo
 
 An explicit recovery action is a typed liveness repair path for a source issue. It is the recovery primitive; the action can be rendered directly on the source issue or backed by a separate recovery issue when the repair needs its own work item.
 
-A terminal native failure can retain a result accepted before checkpoint or cleanup failed. That result is historical evidence, not a live controller. New user input may start a fresh turn after the controller and execution environment have stopped and ordinary admission checks pass. Preserve the failed run, its result, and its recovery budget. Do not commit the old result, infer action outcomes, or replay the failed turn. A message saved while cleanup is pending must be reconsidered after verified cleanup and delivered once. Admission must consume its deferred receipt in the same transaction that creates the new run, including in agent chat, where later messages keep their separate turns. Completing that run must not promote the consumed receipt again. Workspace-export repair retains its separate saved-result recovery path.
+A terminal native failure can retain a result accepted before checkpoint or cleanup failed. That result is historical evidence, not a live controller. New user input may start a fresh turn after the controller and execution environment have stopped and ordinary admission checks pass. Preserve the failed run, its result, and its recovery budget. Do not commit the old result, infer action outcomes, or replay the failed turn. A message saved while cleanup is pending must be reconsidered after verified cleanup and delivered once. External chat messages retain their original inbound action, wake receipt and actor. Cleanup delegates reconsideration to the live inbound owner, which revalidates the endpoint, conversation generation, principal and exact saved source before normal admission. The existing stranded-queue sweep uses the same owner after a lost callback or restart; it cannot substitute a generic assignment wake. A rejected source must not prevent other saved messages from being reconsidered. Admission must consume its deferred receipt in the same transaction that creates the new run, including in agent chat, where later messages keep their separate turns. Completing that run must not promote the consumed receipt again. Workspace-export repair retains its separate saved-result recovery path.
 
 When a legacy turn admitted by an explicit user message fails or times out, a bounded transient retry needs its own durable continuation authorization. Initial admission binds the message's exact body digest and revision. Scheduling requires that original binding and revalidates the human author, source task, assignee, and execution ownership, then records the successor's receipt in the same transaction as its run. Historical receipts without a message binding cannot authorize automatic retries and are not backfilled. The parent receipt remains intact. Dispatch checks the exact successor, retry parent, and unchanged message binding again. Deleted or edited input, changed actors or ownership, superseded work, and duplicate successors cannot renew authority. One-run Retry and Interrupt intents retain their separate admission contracts; they are not renewable user-message authority. Other retry policies cannot borrow this receipt: their scheduling fails closed. Successful explicit turns do not create a prose-only missing-comment follow-up with spent authority.
 
@@ -1444,7 +1444,7 @@ Real gates still apply: company and task ownership, active provider ownership, b
 
 A source that already stopped and was released remains fenced until its export settles; restart reconciliation scans these released sources too. Both provider reuse and destruction check the physical allocation for a shutdown fence or file-repair pin, including historical lease rows.
 
-An operator Stop waits for provider termination. Remote sandbox providers may return a stopped/deleted receipt after their control-plane operation completes. Paperclip binds that receipt to the company, run, and exact lease; successful file cleanup, a terminal run row, or an in-sandbox shutdown event is not sufficient. Legacy conversational runs receive their cancellation acknowledgement after all remote leases have confirmed termination. Stop alone never creates a continuation. A user message queued during remote cleanup is reconsidered when the provider confirms termination; it still passes normal admission and adopts pending comment IDs in order. Once stopped, the next explicit wake uses the same queue. A compatible saved ACP session can resume, and an unavailable or incompatible session can start fresh with the full task context. Run credentials and scratch paths remain scoped to the new run. A subtree pause requires Resume; a message does not bypass it.
+An operator Stop waits for provider termination. Remote sandbox providers may return a stopped/deleted receipt after their control-plane operation completes. Paperclip binds that receipt to the company, run, and exact lease; successful file cleanup, a terminal run row, or an in-sandbox shutdown event is not sufficient. Legacy conversational runs and native runs with an audited run-only Stop receive their shared cancellation acknowledgement after all remote leases have confirmed termination. A native interrupt acknowledgement alone does not establish containment. Workspace preservation remains a separate obligation and its recovery hold survives this acknowledgement. Stop alone never creates a continuation. A user message queued during remote cleanup is reconsidered when the provider confirms termination; it still passes normal admission and adopts pending comment IDs in order. Once stopped, the next explicit wake uses the same queue. A compatible saved ACP session can resume, and an unavailable or incompatible session can start fresh with the full task context. Run credentials and scratch paths remain scoped to the new run. A subtree pause requires Resume; a message does not bypass it.
 
 Cancelled runs and runs with a recorded pending stop lose run-scoped API write authority, while reads remain available for diagnostics. This applies to ordinary tasks as well as conversations. Task and interaction mutations recheck that authority in the write transaction, so a cancelled run cannot overwrite a recovery disposition with a late Done or resolve an interaction after revocation. A task handoff that intentionally stops its own run can commit only with a server receipt tied to that exact request. Direct sandbox CLI adapters such as Grok register cancellation before preparation and keep ownership until host-owned termination is verified, including a sandbox acquired before adapter registration. A failed stop does not acknowledge cancellation or abandon an outstanding remote command. Interrupted workspace restore failures remain recorded for recovery; a stop receipt proves termination, not successful file restoration.
 
@@ -2226,3 +2226,33 @@ use the same activity projection. Board-owned repairs stay actionable until a
 verified native retry actually starts. Once an explicit board retry is running,
 its live activity takes precedence over the prior owner and exhausted budget.
 Resolved and cancelled actions remain resolved.
+
+
+### Task directories after a fresh retry
+
+A fresh repository-free retry receives its own private attempt directory. Once
+that attempt succeeds, later ordinary input reuses the task's currently bound
+directory, including an attempt directory, and preserves its saved files. The
+binding is re-read before preparation. Only the exact company's task namespace
+is eligible; closed or changed bindings, foreign paths, symlinks and missing
+retained directories fail validation. A later explicitly fresh retry still
+receives a separate clean sibling and does not copy or replay the old turn.
+
+### Stopped execution workspace recovery instructions
+
+A stopped run can retain a historical workspace repair instruction after machine
+recovery has saved the files. Its execution projection uses the workspace
+recovery state bound to that exact run for the next instruction, as the task
+blocker does. Recovery in progress, a failed repair, and recovered files must
+remain distinct. This read-only instruction does not release the replay hold,
+change the stopped run, or authorize another provider turn. A recorded explicit
+successor still takes precedence over the old recovery instruction.
+
+
+A terminal native run can leave an older exact-session retry action behind when
+workspace recovery takes ownership. The existing execution disposition worker
+retires that action only after the exact run and coordinator are terminal, no
+controller lease, result, successor or retry remains, and a separate source-bound
+workspace hold records that uncertain actions cannot replay. The worker keeps
+that hold and all saved work. It does not change the task or start a provider.
+The same bounded reconciliation pass handles historical actions after restart.
