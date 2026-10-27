@@ -87,9 +87,24 @@ vi.mock("./installation-integrity.js", () => ({ verifyNativeAcpxInstallation: vi
 
 describe("Copilot build-owned installation", () => {
   it("admits the current profile with environment launch preparation", () => {
-    expect(QUALIFIED_ACPX_PROFILES.copilot.agentProfileVersion).toBe(63);
+    expect(QUALIFIED_ACPX_PROFILES.copilot.agentProfileVersion).toBe(64);
     expect(QUALIFIED_ACPX_PROFILES.copilot.qualificationStatus).toBeUndefined();
-    expect(QUALIFIED_ACPX_PROFILES.copilot.commandDigest).toBe("sha256:1412842a36a7211d84b6b98a3d1f69e3388bc4814e5825da890a774ae0e3460e");
+    expect(QUALIFIED_ACPX_PROFILES.copilot.commandDigest).toBe("sha256:22e31f95ef972bcead98a4a707c9f33433558fd111e390e027a2bbb4346e112a");
+  });
+
+  it("preserves published v63 while binding delegated connection guidance in v64", async () => {
+    const priorBytes = readFileSync(new URL("../../../test/fixtures/copilot-profile-v63-identity.json", import.meta.url));
+    expect(createHash("sha256").update(priorBytes).digest("hex")).toBe("4adb05bd642f0222a3bcc85cfefbeb2988de439f58125012e1c575caedd90798");
+    const prior = JSON.parse(priorBytes.toString("utf8"));
+    const current = JSON.parse(readFileSync(new URL("../../../test/fixtures/copilot-profile-v64-identity.json", import.meta.url), "utf8"));
+    expect(prior.commandDigest).toBe("sha256:1412842a36a7211d84b6b98a3d1f69e3388bc4814e5825da890a774ae0e3460e");
+    expect(Object.keys(current.declaration).filter(key => current.declaration[key] !== prior.declaration[key]).sort()).toEqual([
+      "agentProfileVersion", "nativeRuntimePromptsSourceSha256", "profileCompatibilitySourceSha256",
+    ]);
+    expect(Object.keys(current.declaration).sort()).toEqual(Object.keys(prior.declaration).sort());
+    expect(isSupportedAcpxProfileVersion("copilot", 63)).toBe(true);
+    await expect(verifyCopilotInstallation({ ...QUALIFIED_ACPX_PROFILES.copilot,
+      agentProfileVersion: 63, commandDigest: prior.commandDigest })).rejects.toThrow("exact pinned");
   });
 
   it("preserves both published v62 identities while binding their merged source in v63", async () => {
