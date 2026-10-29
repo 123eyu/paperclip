@@ -10600,6 +10600,7 @@ export function issueService(db: Db) {
             : values.parentId ? `issue:${values.parentId}` : undefined);
         }
         if (values.monitorNextCheckAt) await notifyDeliveryWork(tx, DELIVERY_QUEUES.issueMonitors);
+        await notifyDeliveryWork(tx, DELIVERY_QUEUES.agentTimers);
         const [issue] = await tx.insert(issues).values(values).returning();
         await attachOwnedDraftImages(tx, issue, issue.description, { userId: issueData.createdByUserId, agentId: issueData.createdByAgentId });
         if (issue.visibility === "private" && !inheritedPrivateSubtree && issueData.createdByAgentId) {
@@ -11476,6 +11477,10 @@ export function issueService(db: Db) {
           || issueData.parentId !== undefined || issueData.executionWorkspaceId !== undefined) {
           await notifyTerminalWorkspaceWork(tx, `issue:${id}`);
         }
+        if (patch.status !== undefined || patch.assigneeAgentId !== undefined || patch.assigneeUserId !== undefined
+          || patch.hiddenAt !== undefined || patch.conversationAgentId !== undefined) {
+          await notifyDeliveryWork(tx, DELIVERY_QUEUES.agentTimers);
+        }
         if (patch.monitorNextCheckAt !== undefined || (receiptExisting.monitorNextCheckAt &&
           (patch.status !== undefined || patch.assigneeAgentId !== undefined || patch.assigneeUserId !== undefined))) {
           await notifyDeliveryWork(tx, DELIVERY_QUEUES.issueMonitors);
@@ -11938,6 +11943,7 @@ export function issueService(db: Db) {
           }
           await notifyDecisionTargetIssueRemoval(tx, id);
           await notifyDeliveryWork(tx, DELIVERY_QUEUES.issueMonitors);
+          await notifyDeliveryWork(tx, DELIVERY_QUEUES.agentTimers);
           removedIssue = await tx
             .delete(issues)
             .where(eq(issues.id, id))
@@ -12065,6 +12071,7 @@ export function issueService(db: Db) {
         : isNull(issues.executionRunId);
       const updated = await db.transaction(async tx => {
         await notifyDeliveryWork(tx, DELIVERY_QUEUES.issueMonitors);
+        await notifyDeliveryWork(tx, DELIVERY_QUEUES.agentTimers);
         return tx
           .update(issues)
           .set({
@@ -12193,6 +12200,7 @@ export function issueService(db: Db) {
           const staleExecutionRunId = current.executionRunId;
           const adopted = await db.transaction(async tx => {
             await notifyDeliveryWork(tx, DELIVERY_QUEUES.issueMonitors);
+            await notifyDeliveryWork(tx, DELIVERY_QUEUES.agentTimers);
             return tx
               .update(issues)
               .set(adoptionSet)
@@ -12447,6 +12455,7 @@ export function issueService(db: Db) {
         await notifyTerminalWorkspaceWork(tx, `issue:${id}`);
         await notifyNativeStatusReassessment(tx, { companyId: existing.companyId, issueId: id });
         await notifyDeliveryWork(tx, DELIVERY_QUEUES.issueMonitors);
+        await notifyDeliveryWork(tx, DELIVERY_QUEUES.agentTimers);
         const updated = await tx
           .update(issues)
           .set({
@@ -12506,6 +12515,7 @@ export function issueService(db: Db) {
           await notifyUnsafeWorkspaceExportRecovery(tx, { companyId: existing.companyId, issueId: id });
         }
         await notifyDeliveryWork(tx, DELIVERY_QUEUES.issueMonitors);
+        await notifyDeliveryWork(tx, DELIVERY_QUEUES.agentTimers);
         const updated = await tx
           .update(issues)
           .set(patch)

@@ -155,6 +155,7 @@ const {
     sweepPendingCleanupLeases: vi.fn(async () => ({ swept: 0, destroyed: 0, capped: 0 })),
     sweepExpiredRuntimeStatuses: vi.fn(() => 0),
     tickAgentTimers: vi.fn(async () => ({ checked: 0, enqueued: 0, skipped: 0 })),
+    nextAgentTimerAt: vi.fn(async () => null),
     tickIssueMonitors: vi.fn(async () => ({ checked: 0, triggered: 0, skipped: 0 })),
     nextIssueMonitorAt: vi.fn(async () => null),
   };
@@ -1170,7 +1171,9 @@ describe("startServer feedback export wiring", () => {
       await settleStartupHousekeeping();
 
       expect(heartbeatServiceMock.reapOrphanedRuns).not.toHaveBeenCalled();
-      expect(heartbeatServiceMock.tickAgentTimers).not.toHaveBeenCalled();
+
+
+      expect(heartbeatServiceMock.tickAgentTimers).toHaveBeenCalledTimes(1);
       expect(environmentCustomImagesServiceMock.cleanupExpiredSetupSessions).toHaveBeenCalledTimes(1);
 
       expect(intervalCallback).not.toBeNull();
@@ -1178,7 +1181,7 @@ describe("startServer feedback export wiring", () => {
       await Promise.resolve();
       await Promise.resolve();
 
-      expect(heartbeatServiceMock.tickAgentTimers).not.toHaveBeenCalled();
+      expect(heartbeatServiceMock.tickAgentTimers).toHaveBeenCalledTimes(1);
       expect(externalObjectsServiceMock.refreshDueObjectsForActiveCompanies).toHaveBeenCalledTimes(1);
       expect(issueThreadInteractionServiceMock.sweepMergedPullRequestConfirmations).toHaveBeenCalledTimes(1);
       expect(executionWorkspaceServiceMock.sweepTerminalWorkspaces).toHaveBeenCalledTimes(1);
