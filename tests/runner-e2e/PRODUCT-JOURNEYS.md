@@ -119,6 +119,17 @@ satisfy the check. A pending or suppressed comment can use the same proven nativ
 reply path. A finish summary by itself, an earlier turn, a progress
 bubble, or a cancelled run cannot satisfy it. Private receipts record the run,
 thread anchor and observed text; classic protocol comment matchers stay strict.
+Markdown replies compare complete text, GFM checkbox states and exact link destinations after parsing
+through the UI-owned projection of its existing Markdown renderer and GFM/issue-reference plugins. The observer receives the
+same visible-company prefix list used by the UI, so bare issue keys and URLs
+match their rendered links. Whitespace and inline formatting can change during rendering. A
+document or issue chip can replace a link label, but must retain its destination.
+Ordinary links retain their source label. Destination resolution uses the existing
+production company-route helper and the current task URL for fragments.
+Receipts retain both source Markdown and observed content. Unsupported structures
+such as images, raw HTML, tables and fenced code fail closed. Exact marker checks
+remain exact, and decline checks inspect both visible explanations and source
+text for unread service data.
 The decline oracle accepts this explicit native receipt without inventing an
 issue comment. The final run must start after the saved decline, and the usual
 truthful explanation, zero service calls and no unread marker checks still apply.
