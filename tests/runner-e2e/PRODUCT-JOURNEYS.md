@@ -105,6 +105,18 @@ server proves that no provider work started. A scheduled replacement remains
 pending and consumes the run limit. It cannot satisfy completion; the child must
 still finish through native execution and pass the independent artifact checks.
 
+A failed native run can remain pending when the authenticated run projection
+identifies agent-owned automatic recovery on that same run. Its native phase
+must remain retryable, with matching nonempty cause strings, a bounded attempt
+and retry schedule, and no successor. Cause strings are diagnostic values, not
+a positive retry policy. Known permanent, permission-declined, and exhausted
+causes are also rejected defensively. The wait stays within the original
+campaign deadline. An overdue retry can still be reconnecting; it does not extend
+the deadline or authorize a new story attempt. Ordinary failures, terminal or
+board-owned recovery, and exhausted attempts still fail. The producing turn must
+settle before proposal acceptance, and the recovered child must actually succeed
+before the existing document, artifact, download, and parent-link checks can pass.
+
 The attached `ask-question` recipe requires a prepared native general agent and
 an explicit execution environment. Legacy execution is unsupported until its
 saved model/provider identity can be verified. A registered
