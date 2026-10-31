@@ -1,3 +1,4 @@
+import { notifyAttentionRetentionWork } from "./retention-work-notifications.js";
 import { notifyStatusCardIssueChange } from "./status-card-notifications.js";
 import { DELIVERY_QUEUES, notifyDeliveryWork } from "./delivery-work-notifications.js";
 import { notifyUnsafeWorkspaceExportRecovery } from "./unsafe-workspace-export-notifications.js";
@@ -127,6 +128,7 @@ export async function settleExternalConversation(db: Db, companyId: string, issu
     const ready = await readSettlement(tx, companyId, issueId, true);
     if (!ready) return false;
     const { binding, issue, run } = ready;
+    await notifyAttentionRetentionWork(tx, { companyId });
     const changed = await tx.update(chatConversations).set({ state: "waiting", updatedAt: new Date() })
       .where(and(eq(chatConversations.id, binding.conversation.id), eq(chatConversations.companyId, companyId), eq(chatConversations.state, "active")))
       .returning({ id: chatConversations.id });
