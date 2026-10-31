@@ -1,3 +1,4 @@
+import { notifyIssueRecovery } from "./issue-recovery-notifications.js";
 import { notifyRunDispatch } from "./run-dispatch-notifications.js";
 import { notifyExternalConversationSettlement } from "./external-conversation-settlement-notifications.js";
 import { notifyNativeRecoveryNotices } from "./native-recovery-notice-notifications.js";
@@ -7628,6 +7629,7 @@ export function issueService(db: Db) {
       await assertNoBlockingCycles(companyId, issueId, deduped, dbOrTx);
     }
 
+    await notifyIssueRecovery(dbOrTx, { companyId });
     await dbOrTx
       .delete(issueRelations)
       .where(
@@ -9676,27 +9678,30 @@ export function issueService(db: Db) {
       });
 
       if (blockParentUntilDone) {
-        const existingBlockers = await db
-          .select({ blockerIssueId: issueRelations.issueId })
-          .from(issueRelations)
-          .where(
-            and(
-              eq(issueRelations.companyId, parent.companyId),
-              eq(issueRelations.relatedIssueId, parent.id),
-              eq(issueRelations.type, "blocks"),
-            ),
+        await db.transaction(async tx => {
+          const existingBlockers = await tx
+            .select({ blockerIssueId: issueRelations.issueId })
+            .from(issueRelations)
+            .where(
+              and(
+                eq(issueRelations.companyId, parent.companyId),
+                eq(issueRelations.relatedIssueId, parent.id),
+                eq(issueRelations.type, "blocks"),
+              ),
+            );
+          await syncBlockedByIssueIds(
+            parent.id,
+            parent.companyId,
+            [
+              ...new Set([
+                ...existingBlockers.map((row) => row.blockerIssueId),
+                child.id,
+              ]),
+            ],
+            { agentId: actorAgentId ?? null, userId: actorUserId ?? null },
+            tx,
           );
-        await syncBlockedByIssueIds(
-          parent.id,
-          parent.companyId,
-          [
-            ...new Set([
-              ...existingBlockers.map((row) => row.blockerIssueId),
-              child.id,
-            ]),
-          ],
-          { agentId: actorAgentId ?? null, userId: actorUserId ?? null },
-        );
+        });
         [child] = await withIssueRelationSummaries(
           parent.companyId,
           [child],
@@ -11495,7 +11500,9 @@ export function issueService(db: Db) {
           await notifyTerminalWorkspaceWork(tx, `issue:${id}`);
         }
         if (patch.status !== undefined || patch.assigneeAgentId !== undefined || patch.assigneeUserId !== undefined
-          || patch.hiddenAt !== undefined || patch.conversationAgentId !== undefined) {
+          || patch.hiddenAt !== undefined || patch.conversationAgentId !== undefined || patch.parentId !== undefined
+          || patch.executionState !== undefined || patch.executionRunId !== undefined || patch.checkoutRunId !== undefined
+          || blockedByIssueIds !== undefined) {
           await notifyRunDispatch(tx, { companyId: receiptExisting.companyId });
           await notifyDeliveryWork(tx, DELIVERY_QUEUES.agentTimers);
         }
@@ -13816,6 +13823,7 @@ export function issueService(db: Db) {
           .then((rows) => rows[0] ?? null);
         if (!existing) return null;
 
+        await notifyIssueRecovery(tx, { companyId: existing.companyId });
         await tx.delete(issueAttachments).where(eq(issueAttachments.id, id));
         await tx.delete(assets).where(eq(assets.id, existing.assetId));
         return existing;
